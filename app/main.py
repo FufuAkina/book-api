@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-
+from fastapi import HTTPException
 # 创建 FastAPI 应用实例
 app = FastAPI(
     title="BookAPI",
@@ -7,43 +7,28 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# 根路径 - 健康检查
+# 根路径端点 - 健康检查
 @app.get("/")
 def read_root():
     """
     根路径， 返回欢迎信息
-    """
+    """     # FastAPI 自动把 docstring 作为端点的描述
     return {"message": "Welcome to BookAPI", "status": "running"}
 
+# 模拟数据库(BOOKS字典为全局变量)
+BOOKS_DB = {
+    1: {"id": 1, "title": "Python核心编程", "author": "Wesley Chun", "year": 2019},
+    2: {"id": 2, "title": "FastAPI实战", "author": "晴雯", "year": 2023},
+    3: {"id": 3, "title": "PostgreSQL权威指南", "author": "苗小弟", "year": 2020}
+}   # value为字典的字典
+
 # 获取所有图书(模拟数据)
-@app.get("/books")
+@app.get("/books")  # 复数名词表示资源集合
 def get_books():
     """
     获取图书列表(模拟数据)
     """
-    return [
-        {
-            "id": 1,
-            "title": "Python核心编程",
-            "author": "Wesley Chun",
-            "year": 2019,
-            "isbn": "9787115514684"
-        },
-        {
-            "id": 2,
-            "title": "FastAPI实战",
-            "author": "晴雯",
-            "year": 2023,
-            "isbn": "97887121234567"
-        },
-        {
-            "id": 3,
-            "title": "PostgreSQL权威指南",
-            "author": "苗小弟",
-            "year": 2020,
-            "isbn": "9787121345678"
-        }
-    ]
+    return list(BOOKS_DB.values())
     
 # 根据 ID 获取单本图书
 @app.get("/books/{book_id}")
@@ -51,28 +36,10 @@ def get_book(book_id: int):
     """
     根据 ID 获取图书详情
     """
-    # 模拟数据库查询
-    books = {
-        1 : {
-            "id": 1,
-            "title": "Python核心编程",
-            "author": "Wesley Chun",
-            "year": 2019,
-            "isbn": "9787115514684"
-        },
-        2: {
-             "id": 2,
-            "title": "FastAPI实战",
-            "author": "晴雯",
-            "year": 2023,
-            "isbn": "97887121234567"
-        }
-    }
-    
-    if book_id in books:
-        return books[book_id]
-    else:
-        return {"error": "Book not found "}, 404
+    if book_id not in BOOKS_DB:
+        raise HTTPException(status_code=404, detail="Book not found")
+        # HTTPException自动设置HTTP状态码，生成白哦准的错误相应格式
+    return BOOKS_DB[book_id]
     
 # 搜索图书(查询参数)
 @app.get("/search")
