@@ -3,6 +3,9 @@ from sqlalchemy import select, update, delete
 from sqlalchemy.sql import or_
 from app import models, schemas
 
+from sqlalchemy import select, func, or_
+from typing import Optional
+
 # ==================== 查询操作 ====================
 
 async def get_book(db: AsyncSession, book_id: int):
@@ -13,12 +16,60 @@ async def get_book(db: AsyncSession, book_id: int):
     return result.scalar_one_or_none()
 
 
-async def get_books(db: AsyncSession, skip: int = 0, limit: int = 100):
-    """获取图书列表（异步）"""
-    result = await db.execute(
-        select(models.Book).offset(skip).limit(limit)
-    )
+async def get_books(
+    db: AsyncSession,
+    skip: int = 0,
+    limit: int = 100,
+    sort_by: str = "id",
+    order: str = "asc",
+    author: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None
+):
+    """获取图书列表（支持过滤、排序、分页）"""
+    # 构建查询
+    query = select(models.Book)
+    
+    # 过滤条件
+    if author:
+        query = query.where(models.Book.author.ilike(f"%{author}%"))
+    if min_price is not None:
+        query = query.where(models.Book.price >= min_price)
+    if max_price is not None:
+        query = query.where(models.Book.price <= max_price)
+    
+    # 排序
+    sort_column = getattr(models.Book, sort_by, models.Book.id)
+    if order == "desc":
+        query = query.order_by(sort_column.desc())
+    else:
+        query = query.order_by(sort_column.asc())
+    
+    # 分页
+    query = query.offset(skip).limit(limit)
+    
+    result = await db.execute(query)
     return result.scalars().all()
+
+# 新增：获取总数
+async def get_books_count(
+    db: AsyncSession,
+    author: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None
+) -> int:
+    """获取图书总数（用于分页）"""
+    query = select(func.count(models.Book.id))
+    
+    if author:
+        query = query.where(models.Book.author.ilike(f"%{author}%"))
+    if min_price is not None:
+        query = query.where(models.Book.price >= min_price)
+    if max_price is not None:
+        query = query.where(models.Book.price <= max_price)
+    
+    result = await db.execute(query)
+    return result.scalar()
 
 
 async def get_book_by_isbn(db: AsyncSession, isbn: str):
